@@ -1,117 +1,59 @@
 import { useState } from 'react';
-import { create } from 'zustand';
-import { useNavigate } from 'react-router-dom'; // 👈 Import navigate
+import { useNavigate } from 'react-router-dom';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
 import { useTranslation } from 'react-i18next';
-
-
-export const useStore = create((set) => ({
-  user: null,
-  appointments: [],
-  healthData: [],
-  setUser: (user) => set({ user }),
-  setAppointments: (appointments) => set({ appointments }),
-  addHealthData: (data) => set((state) => ({ healthData: [...state.healthData, data] })),
-}));
+import { useStore } from '../store'; // Zustand store
 
 function Auth({ supabase }) {
-  const { setUser } = useStore();
+  const { setUser, clearUser } = useStore();
   const { t } = useTranslation();
-  const navigate = useNavigate(); // 👈 Hook to redirect after login
+  const navigate = useNavigate();
 
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Login handler
-  const handleLogin = async () => {
-    console.log("Attempting login with:", credentials.email, credentials.password);
-    setErrorMsg('');
-    try {
-      const response = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-      });
-      console.log('Supabase login response:', response);
-
-      const { data, error } = response;
-
-      if (error) {
-        console.error('Login error:', error);
-        setErrorMsg(t('login_failed_invalid_credentials'));
-        return;
-      }
-
-      if (data?.user) {
-        console.log('Login success:', data.user);
-        setUser(data.user);
-        navigate('/dashboard'); // ✅ Redirect to dashboard
-      } else {
-        console.warn('Login failed: no user returned');
-        setErrorMsg(t('login_failed_invalid_credentials'));
-      }
-    } catch (error) {
-      console.error('Unexpected login error:', error);
-      setErrorMsg(t('login_failed_invalid_credentials'));
-    }
-  };
-
-  // Signup handler
-  const handleSignUp = async () => {
-    setErrorMsg('');
-    try {
-      const response = await supabase.auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
-        options: {
-          data: {
-            full_name: "Test User",
-            role: "miner",
-            language: "fr",
-          },
-        },
-      });
-      console.log('Supabase signup response:', response);
-
-      const { data, error } = response;
-
-      if (error) {
-        console.error('Sign-up error:', error);
-        setErrorMsg(t('signup_failed'));
-        return;
-      }
-
-      if (data?.user) {
-        console.log('User created:', data.user);
-        setUser(data.user);
-        navigate('/dashboard'); // ✅ Redirect after signup
-      } else {
-        console.warn('Sign-up failed: no user returned');
-        setErrorMsg(t('signup_failed'));
-      }
-    } catch (error) {
-      console.error('Unexpected sign-up error:', error);
-      setErrorMsg(t('signup_failed'));
-    }
-  };
-
-  // Form submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setErrorMsg('');
 
-    if (!credentials.email || !credentials.password) {
+    const { email, password } = credentials;
+
+    if (!email || !password) {
       setErrorMsg(t('please_fill_all_fields'));
       return;
     }
 
     try {
-      if (isSignUp) {
-        await handleSignUp();
-      } else {
-        await handleLogin();
+      const response = isSignUp
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: 'Test User',
+                role: 'miner',
+                language: 'fr',
+              },
+            },
+          })
+        : await supabase.auth.signInWithPassword({ email, password });
+
+      const { data, error } = response;
+
+      if (error || !data?.user) {
+        console.error('Auth error:', error);
+        clearUser();
+        setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
+        return;
       }
-    } catch (error) {
-      console.error('Unexpected submit error:', error);
+
+      setUser(data.user); // Zustand setUser
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Unexpected auth error:', err);
+      clearUser();
+      setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
     }
   };
 
@@ -126,7 +68,6 @@ function Auth({ supabase }) {
           <input
             type="email"
             name="email"
-            autoComplete="email"
             placeholder={t('username')}
             className="w-full p-2 mb-4 border rounded"
             value={credentials.email}
@@ -136,14 +77,15 @@ function Auth({ supabase }) {
           <input
             type="password"
             name="password"
-            autoComplete={isSignUp ? "new-password" : "current-password"}
             placeholder={t('password')}
             className="w-full p-2 mb-4 border rounded"
             value={credentials.password}
             onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
             required
           />
+
           {errorMsg && <p className="text-red-500 mb-4">{errorMsg}</p>}
+
           <button
             type="submit"
             className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"

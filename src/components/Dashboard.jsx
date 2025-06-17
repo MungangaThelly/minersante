@@ -1,12 +1,21 @@
 import { useEffect } from 'react';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
-import { useStore } from '../store';
+import { useStore } from '../store.js';
 import { useTranslation } from 'react-i18next';
 
 
 function Dashboard({ supabase }) {
   const { user, appointments, healthData, setAppointments, addHealthData } = useStore();
   const { t } = useTranslation();
+
+  function uniqueById(array) {
+    const seen = new Set();
+    return array.filter(item => {
+      if (seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -15,17 +24,20 @@ function Dashboard({ supabase }) {
         .from('appointments')
         .select('*')
         .eq('user_id', user.id);
-      setAppointments(apptData || []);
 
-      // Fetch health data
-      const { data: healthData } = await supabase
-        .from('health_data')
-        .select('*')
-        .eq('user_id', user.id);
-      (healthData || []).forEach((data) => addHealthData(data));
-    };
-    if (user) fetchData();
-  }, [user, supabase]);
+    setAppointments(uniqueById(apptData || []));
+
+    // Fetch health data
+    const { data: healthData } = await supabase
+      .from('health_data')
+      .select('*')
+      .eq('user_id', user.id);
+
+    uniqueById(healthData || []).forEach((data) => addHealthData(data));
+  };
+  if (user) fetchData();
+}, [user, supabase]);
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
