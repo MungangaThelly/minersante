@@ -68,6 +68,7 @@ function Auth({ supabase }) {
           <input
             type="email"
             name="email"
+            autoComplete="email"
             placeholder={t('username')}
             className="w-full p-2 mb-4 border rounded"
             value={credentials.email}
@@ -77,6 +78,7 @@ function Auth({ supabase }) {
           <input
             type="password"
             name="password"
+            autoComplete={isSignUp ? "new-password" : "current-password"}
             placeholder={t('password')}
             className="w-full p-2 mb-4 border rounded"
             value={credentials.password}

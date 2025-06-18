@@ -6,14 +6,14 @@ import LanguageSwitcher from './LanguageSwitcher.jsx';
 
 function VideoConsultation({ supabase }) {
   const { t } = useTranslation();
-  const { appointments, user, setAppointments } = useStore(); // Include setAppointments
+  const { appointments, user, setAppointments } = useStore();
   const [peer, setPeer] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [currentAppointment, setCurrentAppointment] = useState(null);
   const localVideoRef = useRef();
   const remoteVideoRef = useRef();
 
-  // Get or create the most relevant appointment for video consultation
+  // Get or create the most relevant appointment
   useEffect(() => {
     const initializeAppointment = async () => {
       if (appointments.length > 0) {
@@ -21,23 +21,24 @@ function VideoConsultation({ supabase }) {
         const upcoming = appointments
           .filter(appt => new Date(appt.date) > now)
           .sort((a, b) => new Date(a.date) - new Date(b.date));
-        setCurrentAppointment(upcoming[0] || appointments[0]); // Use first appointment if no upcoming
+        setCurrentAppointment(upcoming[0] || appointments[0]);
       } else if (user?.id) {
-        // Create a new appointment if none exist
         const { data: newAppt, error: apptError } = await supabase
           .from('appointments')
           .insert({
             user_id: user.id,
-            provider_id: '772b89d6-c78d-44a7-a616-698d573766dc', // Replace with a valid provider_id
-            date: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+            provider_id: '772b89d6-c78d-44a7-a616-698d573766dc',
+            date: new Date(Date.now() + 3600000).toISOString(),
             status: 'scheduled',
           })
           .select()
           .single();
+
         if (apptError) {
           console.error('Failed to create appointment:', apptError.message);
           return;
         }
+
         setAppointments([newAppt, ...appointments]);
         setCurrentAppointment(newAppt);
       }
@@ -57,11 +58,24 @@ function VideoConsultation({ supabase }) {
       try {
         setConnectionStatus('connecting');
 
-        // Get user media
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        localVideoRef.current.srcObject = mediaStream;
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          localVideoRef.current.srcObject = mediaStream;
+        } catch (mediaError) {
+          if (mediaError.name === 'NotReadableError') {
+            console.error('Camera is already in use or not accessible:', mediaError);
+            alert('Unable to access your camera. It may be in use by another application.');
+          } else if (mediaError.name === 'NotAllowedError') {
+            console.error('User denied permission to access media devices:', mediaError);
+            alert('Permission to access the camera was denied. Please enable it in your browser settings.');
+          } else {
+            console.error('Unexpected media device error:', mediaError);
+            alert('Unexpected error accessing camera or microphone.');
+          }
+          setConnectionStatus('error');
+          return;
+        }
 
-        // Create peer connection
         peerInstance = new Peer({
           initiator: true,
           trickle: false,
@@ -102,7 +116,6 @@ function VideoConsultation({ supabase }) {
 
         setPeer(peerInstance);
 
-        // Set up realtime signaling
         signalingChannel = supabase
           .channel(`signaling-${currentAppointment.id}`)
           .on(
