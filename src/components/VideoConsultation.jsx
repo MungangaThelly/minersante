@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { useTranslation } from 'react-i18next';
-import Peer from 'simple-peer';
+import Peer from 'simple-peer/simplepeer.min.js';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
 
 function VideoConsultation({ supabase }) {
@@ -13,7 +13,7 @@ function VideoConsultation({ supabase }) {
   const localVideoRef = useRef();
   const remoteVideoRef = useRef();
 
-  // Get or create the most relevant appointment
+  // Fetch or create appointment on mount or appointments update
   useEffect(() => {
     const initializeAppointment = async () => {
       if (appointments.length > 0) {
@@ -23,12 +23,13 @@ function VideoConsultation({ supabase }) {
           .sort((a, b) => new Date(a.date) - new Date(b.date));
         setCurrentAppointment(upcoming[0] || appointments[0]);
       } else if (user?.id) {
+        // Create a new appointment if none exist
         const { data: newAppt, error: apptError } = await supabase
           .from('appointments')
           .insert({
             user_id: user.id,
-            provider_id: '772b89d6-c78d-44a7-a616-698d573766dc',
-            date: new Date(Date.now() + 3600000).toISOString(),
+            provider_id: 'b26effec-0b06-44bb-8fa7-0f74d2f08be2', // replace with your provider's id
+            date: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
             status: 'scheduled',
           })
           .select()
@@ -43,10 +44,11 @@ function VideoConsultation({ supabase }) {
         setCurrentAppointment(newAppt);
       }
     };
+
     initializeAppointment();
   }, [appointments, user?.id, supabase, setAppointments]);
 
-  // Initialize WebRTC connection
+  // Initialize WebRTC call + signaling when appointment or user changes
   useEffect(() => {
     if (!currentAppointment || !user?.id) return;
 
@@ -58,30 +60,26 @@ function VideoConsultation({ supabase }) {
       try {
         setConnectionStatus('connecting');
 
+        // Request camera and mic
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           localVideoRef.current.srcObject = mediaStream;
         } catch (mediaError) {
-          if (mediaError.name === 'NotReadableError') {
-            console.error('Camera is already in use or not accessible:', mediaError);
-            alert('Unable to access your camera. It may be in use by another application.');
-          } else if (mediaError.name === 'NotAllowedError') {
-            console.error('User denied permission to access media devices:', mediaError);
-            alert('Permission to access the camera was denied. Please enable it in your browser settings.');
-          } else {
-            console.error('Unexpected media device error:', mediaError);
-            alert('Unexpected error accessing camera or microphone.');
-          }
+          alert('Camera/mic access failed: ' + mediaError.message);
           setConnectionStatus('error');
           return;
         }
 
+        // Determine if current user is the initiator
+        const isInitiator = user.id === currentAppointment.provider_id;
+
         peerInstance = new Peer({
-          initiator: true,
-          trickle: false,
+          initiator: isInitiator,
+          trickle: false,  // trickle ICE disabled for simplicity; enable if needed
           stream: mediaStream,
         });
 
+        // Send signaling data to supabase table
         peerInstance.on('signal', async (signalData) => {
           try {
             const { error } = await supabase
@@ -92,30 +90,40 @@ function VideoConsultation({ supabase }) {
                 signal_data: JSON.stringify(signalData),
                 created_at: new Date().toISOString(),
               });
+
             if (error) throw error;
-            console.log('Signaling data inserted successfully for appointment:', currentAppointment.id);
+
+            console.log('✅ Signaling data sent for appointment', currentAppointment.id);
           } catch (err) {
-            console.error('Signaling insert failed:', err.message, err.details);
+            console.error('❌ Signaling insert failed:', err.message);
             setConnectionStatus('error');
           }
         });
 
+        // When receiving remote stream, show it in remote video
         peerInstance.on('stream', (remoteStream) => {
           remoteVideoRef.current.srcObject = remoteStream;
           setConnectionStatus('connected');
         });
 
+        peerInstance.on('connect', () => {
+          console.log('✅ Peer connection established');
+          setConnectionStatus('connected');
+        });
+
         peerInstance.on('error', (err) => {
-          console.error('Peer error:', err);
+          console.error('❌ Peer error:', err);
           setConnectionStatus('error');
         });
 
         peerInstance.on('close', () => {
+          console.log('❌ Peer connection closed');
           setConnectionStatus('disconnected');
         });
 
         setPeer(peerInstance);
 
+        // Subscribe to signaling channel for this appointment
         signalingChannel = supabase
           .channel(`signaling-${currentAppointment.id}`)
           .on(
@@ -127,34 +135,36 @@ function VideoConsultation({ supabase }) {
               filter: `appointment_id=eq.${currentAppointment.id}`,
             },
             (payload) => {
+              // Ignore signals sent by self
               if (payload.new.user_id !== user.id) {
+                console.log('⬅️ Received signaling data from peer');
                 peerInstance.signal(JSON.parse(payload.new.signal_data));
               }
             }
-          )
-          .subscribe((status) => {
-            if (status !== 'SUBSCRIBED') {
-              console.error('Channel subscription failed:', status);
-              setConnectionStatus('error');
-            }
-          });
+          );
 
+        const { error: subError } = await signalingChannel.subscribe();
+        if (subError) {
+          console.error('❌ Subscription failed:', subError);
+          setConnectionStatus('error');
+        } else {
+          console.log('✅ Subscribed to signaling channel');
+        }
       } catch (error) {
-        console.error('Call initialization failed:', error);
+        console.error('❌ Call initialization failed:', error);
         setConnectionStatus('error');
       }
     };
 
     initializeCall();
 
+    // Cleanup on unmount or dependency change
     return () => {
       if (peerInstance) peerInstance.destroy();
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-      }
+      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
       if (signalingChannel) supabase.removeChannel(signalingChannel);
     };
-  }, [currentAppointment, supabase, user]);
+  }, [currentAppointment?.id, user?.id, supabase]);
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -169,11 +179,15 @@ function VideoConsultation({ supabase }) {
             )}
           </h1>
           <div className="flex items-center space-x-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              connectionStatus === 'connected' ? 'bg-green-100 text-green-800' :
-              connectionStatus === 'connecting' ? 'bg-yellow-100 text-yellow-800' :
-              'bg-red-100 text-red-800'
-            }`}>
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                connectionStatus === 'connected'
+                  ? 'bg-green-100 text-green-800'
+                  : connectionStatus === 'connecting'
+                  ? 'bg-yellow-100 text-yellow-800'
+                  : 'bg-red-100 text-red-800'
+              }`}
+            >
               {t(`status.${connectionStatus}`)}
             </span>
             <LanguageSwitcher />
@@ -182,16 +196,12 @@ function VideoConsultation({ supabase }) {
 
         {!currentAppointment ? (
           <div className="bg-white rounded-xl shadow p-6 text-center">
-            <p className="text-gray-500 mb-4">
-              {t('noUpcomingAppointments')}
-            </p>
+            <p className="text-gray-500 mb-4">{t('noUpcomingAppointments')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">
-                {t('appointmentDetails')}
-              </h2>
+              <h2 className="text-xl font-semibold mb-4">{t('appointmentDetails')}</h2>
               <div className="space-y-3">
                 <p>
                   <span className="font-medium">Date:</span>{' '}
@@ -201,12 +211,6 @@ function VideoConsultation({ supabase }) {
                   <span className="font-medium">Provider:</span>{' '}
                   {currentAppointment.provider || 'Not assigned'}
                 </p>
-                {currentAppointment.notes && (
-                  <p>
-                    <span className="font-medium">Notes:</span>{' '}
-                    {currentAppointment.notes}
-                  </p>
-                )}
               </div>
             </div>
 

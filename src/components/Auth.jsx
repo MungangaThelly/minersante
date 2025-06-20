@@ -14,48 +14,55 @@ function Auth({ supabase }) {
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrorMsg('');
+  e.preventDefault();
+  setErrorMsg('');
 
-    const { email, password } = credentials;
+  const { email, password } = credentials;
 
-    if (!email || !password) {
-      setErrorMsg(t('please_fill_all_fields'));
+  if (!email || !password) {
+    setErrorMsg(t('please_fill_all_fields'));
+    return;
+  }
+
+  try {
+    const response = isSignUp
+      ? await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: 'Test User', role: 'miner', language: 'fr' },
+          },
+        })
+      : await supabase.auth.signInWithPassword({ email, password });
+
+    const { data, error } = response;
+
+    if (error || !data?.user) {
+      clearUser();
+      setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
       return;
     }
 
-    try {
-      const response = isSignUp
-        ? await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                full_name: 'Test User',
-                role: 'miner',
-                language: 'fr',
-              },
-            },
-          })
-        : await supabase.auth.signInWithPassword({ email, password });
+    setUser(data.user);
 
-      const { data, error } = response;
+    // Fetch role from user metadata (or user.app_metadata)
+    const role = data.user?.user_metadata?.role || 'miner';
 
-      if (error || !data?.user) {
-        console.error('Auth error:', error);
-        clearUser();
-        setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
-        return;
-      }
-
-      setUser(data.user); // Zustand setUser
-      navigate('/dashboard');
-    } catch (err) {
-      console.error('Unexpected auth error:', err);
-      clearUser();
-      setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
+    // Redirect based on role
+    switch (role) {
+      case 'admin':
+        navigate('/admin');
+        break;
+      case 'miner':
+      default:
+        navigate('/dashboard');
     }
-  };
+  } catch (err) {
+    clearUser();
+    setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">

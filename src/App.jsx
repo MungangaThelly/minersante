@@ -1,12 +1,20 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
+import { BrowserRouter, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import { Suspense } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useStore } from './store.js';
 import Auth from './components/Auth.jsx';
+import LanguageSwitcher from './components/LanguageSwitcher.jsx';
 
 // Lazy-loaded components
 const Dashboard = React.lazy(() => import('./components/Dashboard.jsx'));
 const VideoConsultation = React.lazy(() => import('./components/VideoConsultation.jsx'));
+
+function PrivateRoute({ user, loading, children }) {
+  const { t } = useTranslation();
+
+  if (loading) return <div className="p-6 text-center">{t('loading')}</div>;
+  return user ? children : <Navigate to="/" />;
+}
 
 function App({ supabase }) {
   const { t } = useTranslation();
@@ -14,7 +22,7 @@ function App({ supabase }) {
 
   return (
     <BrowserRouter>
-      <nav className="bg-blue-600 p-4 text-white flex justify-between">
+      <nav className="bg-blue-600 p-4 text-white flex justify-between items-center">
         <div className="space-x-4">
           <NavLink
             to="/"
@@ -35,35 +43,29 @@ function App({ supabase }) {
             {t('videoConsultation')}
           </NavLink>
         </div>
+        <LanguageSwitcher />
       </nav>
 
       <Suspense fallback={<div className="p-6 text-center">{t('loading')}</div>}>
         <Routes>
+          {/* Public route */}
           <Route path="/" element={<Auth supabase={supabase} />} />
 
+          {/* Private routes */}
           <Route
             path="/dashboard"
             element={
-              loading ? (
-                <div className="p-6 text-center">{t('loading')}</div>
-              ) : user ? (
+              <PrivateRoute user={user} loading={loading}>
                 <Dashboard supabase={supabase} />
-              ) : (
-                <Auth supabase={supabase} />
-              )
+              </PrivateRoute>
             }
           />
-
           <Route
             path="/consultation"
             element={
-              loading ? (
-                <div className="p-6 text-center">{t('loading')}</div>
-              ) : user ? (
+              <PrivateRoute user={user} loading={loading}>
                 <VideoConsultation supabase={supabase} />
-              ) : (
-                <Auth supabase={supabase} />
-              )
+              </PrivateRoute>
             }
           />
         </Routes>
