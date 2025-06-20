@@ -1,7 +1,8 @@
 {
-  "appName": "AfyaApp",
+  "appName": "Afya ya wachimbaji",
   "login": "Ingia",
   "signup": "Jisajili",
+  "signOut": "Ondoka",
   "username": "Barua pepe",
   "password": "Nenosiri",
   "create_account": "Tengeneza akaunti",
@@ -42,5 +43,13 @@
     "connecting": "Inaunganisha...",
     "disconnected": "Imekatika",
     "error": "Hitilafu ya muunganisho"
-  }
+  },
+  "bookAppointment": "Panga miadi",
+  "provider": "Mtoa huduma",
+  "enterProvider": "Weka jina au kitambulisho cha mtoa huduma",
+  "date": "Tarehe na Saa",
+  "notes": "Maelezo (si lazima)",
+  "enterNotes": "Weka maelezo ya ziada",
+  "bookNow": "Panga sasa",
+  "booking_failed": "Imeshindikana kupanga miadi. Tafadhali jaribu tena."
 }

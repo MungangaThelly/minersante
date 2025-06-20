@@ -1,7 +1,8 @@
 {
-  "appName": "Lopango ya Santé",
+  "appName": "Bopikilipi",
   "login": "Kokota",
   "signup": "Kokoma",
+  "signOut": "Kobima",
   "username": "Imeyili",
   "password": "Mot de passe",
   "create_account": "Kokoma compte",
@@ -42,5 +43,15 @@
     "connecting": "Kobanda...",
     "disconnected": "Esili",
     "error": "Esika moko"
-  }
+  },
+  "bookAppointment": "Loba likita",
+  "provider": "Mosali ya bokolongono",
+  "enterProvider": "Tanga nkombo to ID ya mosali",
+  "date": "Date mpe ngonga",
+  "notes": "Maloba mosusu (ya bolingi)",
+  "enterNotes": "Tanga maloba mosusu soki ezali",
+  "bookNow": "Fanda likita sik’oyo",
+  "booking_failed": "Kofanda likita eboyaki. Loba lisusu s’il vous plaît."
 }
+
+

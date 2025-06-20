@@ -1,7 +1,8 @@
 {
-  "appName": "HealthApp",
+  "appName": "Miners Health", 
   "login": "Login",
   "signup": "Sign Up",
+  "signout": "Sign Out",
   "username": "Email",
   "password": "Password",
   "create_account": "Create an account",
@@ -39,5 +40,14 @@
     "connecting": "Connecting",
     "disconnected": "Disconnected",
     "error": "Connection Error"
-  }
+  },
+  "bookAppointment": "Book an Appointment",
+  "provider": "Provider",
+  "enterProvider": "Enter provider name or ID",
+  "date": "Date and Time",
+  "notes": "Notes (optional)",
+  "enterNotes": "Enter any additional notes",
+  "bookNow": "Book Now",
+  "booking_failed": "Failed to book appointment. Please try again."
 }
+

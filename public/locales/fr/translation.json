@@ -1,7 +1,8 @@
 {
-  "appName": "SantéApp",
+  "appName": "Santé de minier",
   "login": "Connexion",
   "signup": "Inscription",
+  "signOut": "Se déconnecter",
   "username": "Email",
   "password": "Mot de passe",
   "create_account": "Créer un compte",
@@ -42,5 +43,15 @@
     "connecting": "Connexion...",
     "disconnected": "Déconnecté",
     "error": "Erreur de connexion"
-  }
+  },
+  "bookAppointment": "Prendre un rendez-vous",
+  "provider": "Prestataire",
+  "enterProvider": "Saisir le nom ou l'identifiant du prestataire",
+  "date": "Date et heure",
+  "notes": "Remarques (optionnel)",
+  "enterNotes": "Saisissez des remarques supplémentaires",
+  "bookNow": "Réserver maintenant",
+  "booking_failed": "Échec de la réservation du rendez-vous. Veuillez réessayer."
 }
+
+
