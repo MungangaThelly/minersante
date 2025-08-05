@@ -10,10 +10,12 @@ function VideoConsultation({ supabase }) {
   const [peer, setPeer] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [currentAppointment, setCurrentAppointment] = useState(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [videoOn, setVideoOn] = useState(true);
+
   const localVideoRef = useRef();
   const remoteVideoRef = useRef();
 
-  // Fetch or create appointment on mount or appointments update
   useEffect(() => {
     const initializeAppointment = async () => {
       if (appointments.length > 0) {
@@ -22,14 +24,13 @@ function VideoConsultation({ supabase }) {
           .filter(appt => new Date(appt.date) > now)
           .sort((a, b) => new Date(a.date) - new Date(b.date));
         setCurrentAppointment(upcoming[0] || appointments[0]);
-      } else if (user?.id) {
-        // Create a new appointment if none exist
+      } else if (user?.id && user?.user_metadata?.role === 'miner') {
         const { data: newAppt, error: apptError } = await supabase
           .from('appointments')
           .insert({
             user_id: user.id,
-            provider_id: 'b26effec-0b06-44bb-8fa7-0f74d2f08be2', // replace with your provider's id
-            date: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+            provider_id: '', // Update with real provider ID
+            date: new Date(Date.now() + 3600000).toISOString(),
             status: 'scheduled',
           })
           .select()
@@ -48,7 +49,6 @@ function VideoConsultation({ supabase }) {
     initializeAppointment();
   }, [appointments, user?.id, supabase, setAppointments]);
 
-  // Initialize WebRTC call + signaling when appointment or user changes
   useEffect(() => {
     if (!currentAppointment || !user?.id) return;
 
@@ -60,7 +60,6 @@ function VideoConsultation({ supabase }) {
       try {
         setConnectionStatus('connecting');
 
-        // Request camera and mic
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           localVideoRef.current.srcObject = mediaStream;
@@ -70,16 +69,14 @@ function VideoConsultation({ supabase }) {
           return;
         }
 
-        // Determine if current user is the initiator
         const isInitiator = user.id === currentAppointment.provider_id;
 
         peerInstance = new Peer({
           initiator: isInitiator,
-          trickle: false,  // trickle ICE disabled for simplicity; enable if needed
+          trickle: false,
           stream: mediaStream,
         });
 
-        // Send signaling data to supabase table
         peerInstance.on('signal', async (signalData) => {
           try {
             const { error } = await supabase
@@ -93,21 +90,20 @@ function VideoConsultation({ supabase }) {
 
             if (error) throw error;
 
-            console.log('✅ Signaling data sent for appointment', currentAppointment.id);
+            console.log('✅ Signaling data sent');
           } catch (err) {
             console.error('❌ Signaling insert failed:', err.message);
             setConnectionStatus('error');
           }
         });
 
-        // When receiving remote stream, show it in remote video
         peerInstance.on('stream', (remoteStream) => {
           remoteVideoRef.current.srcObject = remoteStream;
           setConnectionStatus('connected');
         });
 
         peerInstance.on('connect', () => {
-          console.log('✅ Peer connection established');
+          console.log('✅ Peer connected');
           setConnectionStatus('connected');
         });
 
@@ -123,7 +119,6 @@ function VideoConsultation({ supabase }) {
 
         setPeer(peerInstance);
 
-        // Subscribe to signaling channel for this appointment
         signalingChannel = supabase
           .channel(`signaling-${currentAppointment.id}`)
           .on(
@@ -135,10 +130,13 @@ function VideoConsultation({ supabase }) {
               filter: `appointment_id=eq.${currentAppointment.id}`,
             },
             (payload) => {
-              // Ignore signals sent by self
               if (payload.new.user_id !== user.id) {
-                console.log('⬅️ Received signaling data from peer');
-                peerInstance.signal(JSON.parse(payload.new.signal_data));
+                try {
+                  peerInstance.signal(JSON.parse(payload.new.signal_data));
+                  console.log('⬅️ Signal received');
+                } catch (err) {
+                  console.warn('⚠️ Signal error:', err);
+                }
               }
             }
           );
@@ -147,24 +145,43 @@ function VideoConsultation({ supabase }) {
         if (subError) {
           console.error('❌ Subscription failed:', subError);
           setConnectionStatus('error');
-        } else {
-          console.log('✅ Subscribed to signaling channel');
         }
       } catch (error) {
-        console.error('❌ Call initialization failed:', error);
+        console.error('❌ Call setup failed:', error);
         setConnectionStatus('error');
       }
     };
 
     initializeCall();
 
-    // Cleanup on unmount or dependency change
     return () => {
-      if (peerInstance) peerInstance.destroy();
+      leaveCall();
       if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
       if (signalingChannel) supabase.removeChannel(signalingChannel);
     };
   }, [currentAppointment?.id, user?.id, supabase]);
+
+  const toggleMute = () => {
+    const stream = localVideoRef.current?.srcObject;
+    if (stream) {
+      stream.getAudioTracks().forEach(track => (track.enabled = !track.enabled));
+      setIsMuted(prev => !prev);
+    }
+  };
+
+  const toggleVideo = () => {
+    const stream = localVideoRef.current?.srcObject;
+    if (stream) {
+      stream.getVideoTracks().forEach(track => (track.enabled = !track.enabled));
+      setVideoOn(prev => !prev);
+    }
+  };
+
+  const leaveCall = () => {
+    if (peer) peer.destroy();
+    setPeer(null);
+    setConnectionStatus('disconnected');
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
@@ -209,28 +226,40 @@ function VideoConsultation({ supabase }) {
                 </p>
                 <p>
                   <span className="font-medium">Provider:</span>{' '}
-                  {currentAppointment.provider || 'Not assigned'}
+                  {currentAppointment.provider || currentAppointment.provider_id || t('notAssigned')}
                 </p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div className="bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-auto"
-                />
+                <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-auto" />
               </div>
               <div className="bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={remoteVideoRef}
-                  autoPlay
-                  playsInline
-                  className="w-full h-auto"
-                />
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-auto" />
+              </div>
+
+              <div className="flex justify-center items-center gap-4 mt-4">
+                <button
+                  onClick={toggleMute}
+                  className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600"
+                >
+                  {isMuted ? t('unmute') : t('mute')}
+                </button>
+
+                <button
+                  onClick={toggleVideo}
+                  className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600"
+                >
+                  {videoOn ? t('stopVideo') : t('startVideo')}
+                </button>
+
+                <button
+                  onClick={leaveCall}
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-500"
+                >
+                  {t('endCall')}
+                </button>
               </div>
             </div>
           </div>

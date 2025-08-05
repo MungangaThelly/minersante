@@ -12,57 +12,78 @@ function Auth({ supabase }) {
   const [credentials, setCredentials] = useState({ email: '', password: '' });
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showUUID, setShowUUID] = useState(false);
+  const [userUUID, setUserUUID] = useState('');
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  setErrorMsg('');
+    e.preventDefault();
+    setErrorMsg('');
 
-  const { email, password } = credentials;
+    const { email, password } = credentials;
 
-  if (!email || !password) {
-    setErrorMsg(t('please_fill_all_fields'));
-    return;
-  }
-
-  try {
-    const response = isSignUp
-      ? await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: { full_name: 'Test User', role: 'miner', language: 'fr' },
-          },
-        })
-      : await supabase.auth.signInWithPassword({ email, password });
-
-    const { data, error } = response;
-
-    if (error || !data?.user) {
-      clearUser();
-      setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
+    if (!email || !password) {
+      setErrorMsg(t('please_fill_all_fields'));
       return;
     }
 
-    setUser(data.user);
+    try {
+      const response = isSignUp
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { full_name: 'Test User', role: 'miner', language: 'fr' },
+            },
+          })
+        : await supabase.auth.signInWithPassword({ email, password });
 
-    // Fetch role from user metadata (or user.app_metadata)
-    const role = data.user?.user_metadata?.role || 'miner';
+      const { data, error } = response;
 
-    // Redirect based on role
-    switch (role) {
-      case 'admin':
-        navigate('/admin');
-        break;
-      case 'miner':
-      default:
-        navigate('/dashboard');
+      if (error || !data?.user) {
+        clearUser();
+        setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
+        return;
+      }
+
+      setUser(data.user);
+
+      const role = data.user?.user_metadata?.role || 'miner';
+
+      if (isSignUp) {
+        const uuid = data.user.id;
+        setUserUUID(uuid);
+        setShowUUID(true);
+        localStorage.setItem('user_uuid', uuid); // Optional
+        return; // Stop redirect on signup to let user see UUID
+      }
+
+      switch (role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'miner':
+        default:
+          navigate('/dashboard');
+      }
+    } catch (err) {
+      clearUser();
+      setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
     }
-  } catch (err) {
-    clearUser();
-    setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
-  }
-};
+  };
 
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(userUUID);
+      alert(t('uuid_copied'));
+    } catch {
+      alert(t('copy_failed'));
+    }
+  };
+
+  const handleContinue = () => {
+    setShowUUID(false);
+    navigate('/dashboard'); // Or wherever you'd like
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -85,7 +106,7 @@ function Auth({ supabase }) {
           <input
             type="password"
             name="password"
-            autoComplete={isSignUp ? "new-password" : "current-password"}
+            autoComplete={isSignUp ? 'new-password' : 'current-password'}
             placeholder={t('password')}
             className="w-full p-2 mb-4 border rounded"
             value={credentials.password}
@@ -119,6 +140,31 @@ function Auth({ supabase }) {
           <LanguageSwitcher />
         </div>
       </div>
+
+      {/* UUID Modal */}
+      {showUUID && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full text-center shadow-lg">
+            <h3 className="text-xl font-semibold mb-4">{t('account_created')}</h3>
+            <p className="mb-2">{t('your_uuid')}:</p>
+            <code className="block p-2 bg-gray-100 border rounded break-all mb-4">
+              {userUUID}
+            </code>
+            <button
+              onClick={handleCopy}
+              className="bg-gray-200 px-4 py-2 rounded mr-2 hover:bg-gray-300"
+            >
+              {t('copy')}
+            </button>
+            <button
+              onClick={handleContinue}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              {t('continue')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

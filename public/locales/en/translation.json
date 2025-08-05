@@ -48,6 +48,11 @@
   "notes": "Notes (optional)",
   "enterNotes": "Enter any additional notes",
   "bookNow": "Book Now",
-  "booking_failed": "Failed to book appointment. Please try again."
+  "booking_failed": "Failed to book appointment. Please try again.",
+  "account_created": "Account Created!",
+  "your_uuid": "Your Booking ID (UUID)",
+  "copy": "Copy",
+  "continue": "Continue",
+  "uuid_copied": "UUID copied to clipboard!",
+  "copy_failed": "Failed to copy UUID."
 }
-
