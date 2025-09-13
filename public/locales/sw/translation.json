@@ -49,6 +49,8 @@
   "enterNotes": "Weka maelezo yoyote ya ziada",
   "bookNow": "Panga Sasa",
   "booking_failed": "Imeshindikana kupanga mkutano. Tafadhali jaribu tena.",
+  "with": "na",
+  "unknownProvider": "Mtoa huduma hajulikani",
   "account_created": "Akaunti Imeundwa!",
   "your_uuid": "Kitambulisho chako cha miadi (UUID)",
   "copy": "Nakili",

@@ -49,6 +49,8 @@
   "enterNotes": "Ajouter des remarques supplémentaires",
   "bookNow": "Prendre rendez-vous",
   "booking_failed": "Échec de la prise de rendez-vous. Veuillez réessayer.",
+  "with": "avec",
+  "unknownProvider": "Prestataire inconnu",
   "account_created": "Compte créé !",
   "your_uuid": "Votre identifiant de réservation (UUID)",
   "copy": "Copier",

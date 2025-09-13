@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
 import { useTranslation } from 'react-i18next';
@@ -9,23 +12,27 @@ function Auth({ supabase }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const [credentials, setCredentials] = useState({ email: '', password: '' });
+  // react-hook-form + zod schema
+  const schema = z.object({
+    email: z.string().email(t('invalid_email')),
+    password: z.string().min(6, t('password_min_length')),
+  });
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm({
+    resolver: zodResolver(schema),
+    defaultValues: { email: '', password: '' },
+  });
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [showUUID, setShowUUID] = useState(false);
   const [userUUID, setUserUUID] = useState('');
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmit = async ({ email, password }) => {
     setErrorMsg('');
-
-    const { email, password } = credentials;
-
-    if (!email || !password) {
-      setErrorMsg(t('please_fill_all_fields'));
-      return;
-    }
-
     try {
       const response = isSignUp
         ? await supabase.auth.signUp({
@@ -65,7 +72,7 @@ function Auth({ supabase }) {
         default:
           navigate('/dashboard');
       }
-    } catch (err) {
+    } catch {
       clearUser();
       setErrorMsg(t(isSignUp ? 'signup_failed' : 'login_failed_invalid_credentials'));
     }
@@ -92,33 +99,37 @@ function Auth({ supabase }) {
           {t('appName')} {isSignUp ? t('signup') : t('login')}
         </h2>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          <label htmlFor="email" className="sr-only">{t('username')}</label>
           <input
+            id="email"
             type="email"
-            name="email"
             autoComplete="email"
             placeholder={t('username')}
-            className="w-full p-2 mb-4 border rounded"
-            value={credentials.email}
-            onChange={(e) => setCredentials({ ...credentials, email: e.target.value })}
-            required
+            className={`w-full p-2 mb-1 border rounded ${errors.email ? 'border-red-500' : ''}`}
+            {...register('email')}
+            disabled={isSubmitting}
           />
+          {errors.email && <p className="text-red-500 text-sm mb-2">{errors.email.message}</p>}
+
+          <label htmlFor="password" className="sr-only">{t('password')}</label>
           <input
+            id="password"
             type="password"
-            name="password"
             autoComplete={isSignUp ? 'new-password' : 'current-password'}
             placeholder={t('password')}
-            className="w-full p-2 mb-4 border rounded"
-            value={credentials.password}
-            onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
-            required
+            className={`w-full p-2 mb-1 border rounded ${errors.password ? 'border-red-500' : ''}`}
+            {...register('password')}
+            disabled={isSubmitting}
           />
+          {errors.password && <p className="text-red-500 text-sm mb-2">{errors.password.message}</p>}
 
           {errorMsg && <p className="text-red-500 mb-4">{errorMsg}</p>}
 
           <button
             type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:opacity-60"
+            disabled={isSubmitting}
           >
             {isSignUp ? t('signup') : t('login')}
           </button>

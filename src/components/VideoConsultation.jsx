@@ -12,9 +12,18 @@ function VideoConsultation({ supabase }) {
   const [currentAppointment, setCurrentAppointment] = useState(null);
   const [isMuted, setIsMuted] = useState(false);
   const [videoOn, setVideoOn] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [reconnectKey, setReconnectKey] = useState(0);
 
   const localVideoRef = useRef();
   const remoteVideoRef = useRef();
+
+  // TURN/STUN config (replace with your own for production)
+  const iceServers = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    // Example public TURN (replace with your own for production reliability)
+    // { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+  ];
 
   useEffect(() => {
     const initializeAppointment = async () => {
@@ -47,7 +56,7 @@ function VideoConsultation({ supabase }) {
     };
 
     initializeAppointment();
-  }, [appointments, user?.id, supabase, setAppointments]);
+  }, [appointments, user?.id, user?.user_metadata?.role, supabase, setAppointments]);
 
   useEffect(() => {
     if (!currentAppointment || !user?.id) return;
@@ -57,6 +66,7 @@ function VideoConsultation({ supabase }) {
     let signalingChannel;
 
     const initializeCall = async () => {
+      setErrorMsg('');
       try {
         setConnectionStatus('connecting');
 
@@ -64,7 +74,7 @@ function VideoConsultation({ supabase }) {
           mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           localVideoRef.current.srcObject = mediaStream;
         } catch (mediaError) {
-          alert('Camera/mic access failed: ' + mediaError.message);
+          setErrorMsg('Camera/mic access failed: ' + mediaError.message);
           setConnectionStatus('error');
           return;
         }
@@ -75,6 +85,7 @@ function VideoConsultation({ supabase }) {
           initiator: isInitiator,
           trickle: false,
           stream: mediaStream,
+          config: { iceServers },
         });
 
         peerInstance.on('signal', async (signalData) => {
@@ -92,7 +103,7 @@ function VideoConsultation({ supabase }) {
 
             console.log('✅ Signaling data sent');
           } catch (err) {
-            console.error('❌ Signaling insert failed:', err.message);
+            setErrorMsg('Signaling insert failed: ' + err.message);
             setConnectionStatus('error');
           }
         });
@@ -103,17 +114,15 @@ function VideoConsultation({ supabase }) {
         });
 
         peerInstance.on('connect', () => {
-          console.log('✅ Peer connected');
           setConnectionStatus('connected');
         });
 
         peerInstance.on('error', (err) => {
-          console.error('❌ Peer error:', err);
+          setErrorMsg('Peer error: ' + err.message);
           setConnectionStatus('error');
         });
 
         peerInstance.on('close', () => {
-          console.log('❌ Peer connection closed');
           setConnectionStatus('disconnected');
         });
 
@@ -133,9 +142,8 @@ function VideoConsultation({ supabase }) {
               if (payload.new.user_id !== user.id) {
                 try {
                   peerInstance.signal(JSON.parse(payload.new.signal_data));
-                  console.log('⬅️ Signal received');
                 } catch (err) {
-                  console.warn('⚠️ Signal error:', err);
+                  setErrorMsg('Signal error: ' + err.message);
                 }
               }
             }
@@ -143,11 +151,11 @@ function VideoConsultation({ supabase }) {
 
         const { error: subError } = await signalingChannel.subscribe();
         if (subError) {
-          console.error('❌ Subscription failed:', subError);
+          setErrorMsg('Subscription failed: ' + subError.message);
           setConnectionStatus('error');
         }
       } catch (error) {
-        console.error('❌ Call setup failed:', error);
+        setErrorMsg('Call setup failed: ' + error.message);
         setConnectionStatus('error');
       }
     };
@@ -159,7 +167,8 @@ function VideoConsultation({ supabase }) {
       if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
       if (signalingChannel) supabase.removeChannel(signalingChannel);
     };
-  }, [currentAppointment?.id, user?.id, supabase]);
+    // eslint-disable-next-line
+  }, [currentAppointment?.id, user?.id, supabase, reconnectKey]);
 
   const toggleMute = () => {
     const stream = localVideoRef.current?.srcObject;
@@ -181,6 +190,10 @@ function VideoConsultation({ supabase }) {
     if (peer) peer.destroy();
     setPeer(null);
     setConnectionStatus('disconnected');
+  };
+
+  const handleReconnect = () => {
+    setReconnectKey((k) => k + 1);
   };
 
   return (
@@ -211,6 +224,20 @@ function VideoConsultation({ supabase }) {
           </div>
         </header>
 
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded text-center">
+            {errorMsg}
+            {connectionStatus === 'error' && (
+              <button
+                onClick={handleReconnect}
+                className="ml-4 px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+              >
+                {t('reconnect')}
+              </button>
+            )}
+          </div>
+        )}
+
         {!currentAppointment ? (
           <div className="bg-white rounded-xl shadow p-6 text-center">
             <p className="text-gray-500 mb-4">{t('noUpcomingAppointments')}</p>
@@ -233,10 +260,14 @@ function VideoConsultation({ supabase }) {
 
             <div className="space-y-4">
               <div className="bg-black rounded-lg overflow-hidden">
-                <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-auto" />
+                <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-auto">
+                  <track kind="captions" label="local video captions" />
+                </video>
               </div>
               <div className="bg-black rounded-lg overflow-hidden">
-                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-auto" />
+                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-auto">
+                  <track kind="captions" label="remote video captions" />
+                </video>
               </div>
 
               <div className="flex justify-center items-center gap-4 mt-4">

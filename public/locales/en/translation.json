@@ -49,6 +49,8 @@
   "enterNotes": "Enter any additional notes",
   "bookNow": "Book Now",
   "booking_failed": "Failed to book appointment. Please try again.",
+  "with": "with",
+  "unknownProvider": "Unknown Provider",
   "account_created": "Account Created!",
   "your_uuid": "Your Booking ID (UUID)",
   "copy": "Copy",

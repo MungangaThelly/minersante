@@ -7,7 +7,8 @@ export const useStore = create((set) => ({
   healthData: [],
 
   setUser: (user) => set({ user, loading: false }),
-  clearUser: () => set({ user: null, loading: false }),
+  clearUser: () => set({ user: null, loading: false, appointments: [], healthData: [] }),
+  reset: () => set({ user: null, loading: false, appointments: [], healthData: [] }),
 
   setAppointments: (appointments) => set({ appointments }),
 
