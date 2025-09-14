@@ -9,10 +9,6 @@ function VideoConsultation({ supabase }) {
   const { t } = useTranslation();
   const { appointments, user, setAppointments } = useStore();
   const { id: appointmentId } = useParams();
-
-  // Debug output for troubleshooting
-  console.log('[VideoConsultation] appointmentId:', appointmentId);
-  console.log('[VideoConsultation] user.id:', user?.id);
   const [peer, setPeer] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [currentAppointment, setCurrentAppointment] = useState(null);
@@ -22,7 +18,12 @@ function VideoConsultation({ supabase }) {
   const [reconnectKey, setReconnectKey] = useState(0);
   const localVideoRef = useRef();
   const remoteVideoRef = useRef();
-  // Now it's safe to log currentAppointment
+  // Helper to determine initiator status (must be after currentAppointment and user are defined)
+  const providerId = currentAppointment?.provider_id;
+  const isInitiator = user?.id && providerId && user.id === providerId;
+  // Debug output for troubleshooting
+  console.log('[VideoConsultation] appointmentId:', appointmentId);
+  console.log('[VideoConsultation] user.id:', user?.id);
   console.log('[VideoConsultation] currentAppointment:', currentAppointment);
 
   // TURN/STUN config (replace with your own for production)
@@ -48,6 +49,7 @@ function VideoConsultation({ supabase }) {
         .eq('id', appointmentId)
         .single();
       if (!error && data) {
+          let pollingInterval;
         setCurrentAppointment(data);
       }
     };
@@ -66,16 +68,20 @@ function VideoConsultation({ supabase }) {
       try {
         setConnectionStatus('connecting');
 
+
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
           localVideoRef.current.srcObject = mediaStream;
+          console.log('[VideoConsultation] Local media stream set', mediaStream);
         } catch (mediaError) {
           setErrorMsg('Camera/mic access failed: ' + mediaError.message);
           setConnectionStatus('error');
+          console.error('[VideoConsultation] Camera/mic access failed:', mediaError);
           return;
         }
 
         const isInitiator = user.id === currentAppointment.provider_id;
+
 
         peerInstance = new Peer({
           initiator: isInitiator,
@@ -83,8 +89,11 @@ function VideoConsultation({ supabase }) {
           stream: mediaStream,
           config: { iceServers },
         });
+        console.log('[VideoConsultation] Peer instance created. Initiator:', isInitiator);
+
 
         peerInstance.on('signal', async (signalData) => {
+          console.log('[VideoConsultation] Peer signal event:', signalData);
           try {
             const { error } = await supabase
               .from('signaling')
@@ -101,30 +110,40 @@ function VideoConsultation({ supabase }) {
           } catch (err) {
             setErrorMsg('Signaling insert failed: ' + err.message);
             setConnectionStatus('error');
+            console.error('[VideoConsultation] Signaling insert failed:', err);
           }
         });
+
 
         peerInstance.on('stream', (remoteStream) => {
           remoteVideoRef.current.srcObject = remoteStream;
           setConnectionStatus('connected');
+          console.log('[VideoConsultation] Remote stream received and set', remoteStream);
         });
+
 
         peerInstance.on('connect', () => {
           setConnectionStatus('connected');
+          console.log('[VideoConsultation] Peer connection established');
         });
+
 
         peerInstance.on('error', (err) => {
           setErrorMsg('Peer error: ' + err.message);
           setConnectionStatus('error');
+          console.error('[VideoConsultation] Peer error:', err);
         });
+
 
         peerInstance.on('close', () => {
           setConnectionStatus('disconnected');
+          console.log('[VideoConsultation] Peer connection closed');
         });
 
         setPeer(peerInstance);
 
         signalingChannel = supabase
+
           .channel(`signaling-${currentAppointment.id}`)
           .on(
             'postgres_changes',
@@ -135,20 +154,60 @@ function VideoConsultation({ supabase }) {
               filter: `appointment_id=eq.${currentAppointment.id}`,
             },
             (payload) => {
+              console.log('[VideoConsultation] Signaling channel payload received:', payload);
               if (payload.new.user_id !== user.id) {
                 try {
+                  console.log('[VideoConsultation] Applying remote signal:', payload.new.signal_data);
+              // Fallback polling for new signals every 2 seconds
+              let lastChecked = new Date().toISOString();
+              pollingInterval = setInterval(async () => {
+                try {
+                  const { data, error } = await supabase
+                    .from('signaling')
+                    .select('*')
+                    .eq('appointment_id', currentAppointment.id)
+                    .neq('user_id', user.id)
+                    .gt('created_at', lastChecked);
+                  if (error) {
+                    console.error('[VideoConsultation] Polling error:', error);
+                    return;
+                  }
+                  if (data && data.length > 0) {
+                    data.forEach(row => {
+                      try {
+                        console.log('[VideoConsultation] Polling: Applying remote signal:', row.signal_data);
+                        peerInstance.signal(JSON.parse(row.signal_data));
+                      } catch (err) {
+                        setErrorMsg('Polling signal error: ' + err.message);
+                        console.error('[VideoConsultation] Polling signal error:', err);
+                      }
+                    });
+                    // Update lastChecked to the latest signal
+                    lastChecked = data[data.length - 1].created_at;
+                  }
+                } catch (err) {
+                  console.error('[VideoConsultation] Polling exception:', err);
+                }
+              }, 2000);
                   peerInstance.signal(JSON.parse(payload.new.signal_data));
                 } catch (err) {
                   setErrorMsg('Signal error: ' + err.message);
+                  console.error('[VideoConsultation] Signal error:', err);
                 }
+              } else {
+                console.log('[VideoConsultation] Ignoring own signal');
               }
             }
           );
 
         const { error: subError } = await signalingChannel.subscribe();
+            if (pollingInterval) clearInterval(pollingInterval);
         if (subError) {
           setErrorMsg('Subscription failed: ' + subError.message);
           setConnectionStatus('error');
+          console.error('[VideoConsultation] Signaling channel subscription failed:', subError);
+        } else {
+          console.log('[VideoConsultation] Signaling channel subscribed successfully');
         }
       } catch (error) {
         setErrorMsg('Call setup failed: ' + error.message);
@@ -194,6 +253,12 @@ function VideoConsultation({ supabase }) {
 
   return (
   <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 p-4 md:p-8">
+      {/* Debug info for connection roles */}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-blue-900 text-xs">
+        <div><strong>User ID:</strong> {user?.id || 'N/A'}</div>
+        <div><strong>Provider ID:</strong> {providerId || 'N/A'}</div>
+        <div><strong>Initiator:</strong> {isInitiator ? 'true' : 'false'}</div>
+      </div>
       <div className="max-w-6xl mx-auto">
         <header className="flex justify-between items-center mb-8">
           <h1 className="text-3xl md:text-4xl font-extrabold text-blue-700 drop-shadow flex items-center gap-3">
