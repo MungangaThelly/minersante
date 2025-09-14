@@ -20,7 +20,13 @@ function VideoConsultation({ supabase }) {
   const remoteVideoRef = useRef();
   // Helper to determine initiator status (must be after currentAppointment and user are defined)
   const providerId = currentAppointment?.provider_id;
-  const isInitiator = user?.id && providerId && user.id === providerId;
+  // Initiator: provider if present, else user with lower UUID string
+  let isInitiator = false;
+  if (user?.id && providerId) {
+    isInitiator = user.id === providerId;
+  } else if (user?.id && currentAppointment?.user_id) {
+    isInitiator = user.id < currentAppointment.user_id;
+  }
   // Debug output for troubleshooting
   console.log('[VideoConsultation] appointmentId:', appointmentId);
   console.log('[VideoConsultation] user.id:', user?.id);
@@ -80,7 +86,8 @@ function VideoConsultation({ supabase }) {
           return;
         }
 
-        const isInitiator = user.id === currentAppointment.provider_id;
+  // Use the isInitiator logic from above
+  // (provider is initiator, else user with lower UUID)
 
 
         peerInstance = new Peer({
@@ -89,7 +96,7 @@ function VideoConsultation({ supabase }) {
           stream: mediaStream,
           config: { iceServers },
         });
-        console.log('[VideoConsultation] Peer instance created. Initiator:', isInitiator);
+        console.log('[VideoConsultation] Peer instance created. Initiator:', isInitiator, 'user.id:', user.id, 'providerId:', providerId, 'appointment.user_id:', currentAppointment.user_id);
 
 
         peerInstance.on('signal', async (signalData) => {
