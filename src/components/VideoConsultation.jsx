@@ -9,10 +9,10 @@ function VideoConsultation({ supabase }) {
   const { t } = useTranslation();
   const { appointments, user, setAppointments } = useStore();
   const { id: appointmentId } = useParams();
+
   // Debug output for troubleshooting
   console.log('[VideoConsultation] appointmentId:', appointmentId);
   console.log('[VideoConsultation] user.id:', user?.id);
-  console.log('[VideoConsultation] currentAppointment:', currentAppointment);
   const [peer, setPeer] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [currentAppointment, setCurrentAppointment] = useState(null);
@@ -20,9 +20,10 @@ function VideoConsultation({ supabase }) {
   const [videoOn, setVideoOn] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [reconnectKey, setReconnectKey] = useState(0);
-
   const localVideoRef = useRef();
   const remoteVideoRef = useRef();
+  // Now it's safe to log currentAppointment
+  console.log('[VideoConsultation] currentAppointment:', currentAppointment);
 
   // TURN/STUN config (replace with your own for production)
   const iceServers = [
