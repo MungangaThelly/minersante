@@ -9,6 +9,10 @@ function VideoConsultation({ supabase }) {
   const { t } = useTranslation();
   const { appointments, user, setAppointments } = useStore();
   const { id: appointmentId } = useParams();
+  // Debug output for troubleshooting
+  console.log('[VideoConsultation] appointmentId:', appointmentId);
+  console.log('[VideoConsultation] user.id:', user?.id);
+  console.log('[VideoConsultation] currentAppointment:', currentAppointment);
   const [peer, setPeer] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [currentAppointment, setCurrentAppointment] = useState(null);
