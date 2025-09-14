@@ -14,6 +14,78 @@ function Dashboard({ supabase }) {
 
   const [bookingError, setBookingError] = useState(null);
 
+  // Edit modal state and logic (must be inside component)
+  const [editingAppt, setEditingAppt] = useState(null);
+  const [editError, setEditError] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // Edit form
+  const editSchema = z.object({
+    provider: z.string().min(2, t('provider_required')),
+    date: z.string().min(1, t('date_required')),
+    notes: z.string().optional(),
+  });
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    formState: { errors: editErrors, isSubmitting: editSubmitting },
+    reset: resetEdit,
+    setValue: setEditValue,
+  } = useForm({
+    resolver: zodResolver(editSchema),
+    defaultValues: { provider: '', date: '', notes: '' },
+  });
+
+  const openEditModal = (appt) => {
+    setEditingAppt(appt);
+    setEditValue('provider', appt.provider_id || '');
+    setEditValue('date', appt.date ? appt.date.slice(0, 16) : '');
+    setEditValue('notes', appt.notes || '');
+    setShowEditModal(true);
+    setEditError(null);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingAppt(null);
+    resetEdit();
+    setEditError(null);
+  };
+
+  const onEditAppointment = async (formData) => {
+    setEditError(null);
+    try {
+      const { error, data: updated } = await supabase
+        .from('appointments')
+        .update({
+          provider_id: formData.provider,
+          date: new Date(formData.date).toISOString(),
+          notes: formData.notes,
+        })
+        .eq('id', editingAppt.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setAppointments(
+        appointments.map((a) => (a.id === editingAppt.id ? { ...a, ...updated } : a))
+      );
+      closeEditModal();
+    } catch (err) {
+      setEditError(t('update_failed') || err.message);
+    }
+  };
+
+  const handleDeleteAppointment = async (id) => {
+    if (!window.confirm(t('delete_confirm'))) return;
+    try {
+      const { error } = await supabase.from('appointments').delete().eq('id', id);
+      if (error) throw error;
+      setAppointments(appointments.filter((a) => a.id !== id));
+    } catch (err) {
+      alert(t('delete_failed') || err.message);
+    }
+  };
+
   // react-hook-form + zod schema for appointment
   const bookingSchema = z.object({
     provider: z.string().min(2, t('provider_required')),
@@ -108,15 +180,73 @@ function Dashboard({ supabase }) {
           <h2 className="text-xl font-semibold mb-4">{t('upcomingAppointments')}</h2>
           {appointments.length ? (
             appointments.map((appt) => (
-              <div key={appt.id} className="border-b py-2">
-                {new Date(appt.date).toLocaleString(i18n.language)} {t('with')}{' '}
-                {appt.provider || t('unknownProvider')}
-                <button className="ml-4 text-blue-500">{t('joinCall')}</button>
+              <div key={appt.id} className="border-b py-2 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div>
+                  {new Date(appt.date).toLocaleString(i18n.language)} {t('with')}{' '}
+                  {appt.provider_id || t('unknownProvider')}
+                </div>
+                <div className="flex gap-2">
+                  <button className="text-blue-500 underline" onClick={() => openEditModal(appt)}>{t('edit')}</button>
+                  <button className="text-red-500 underline" onClick={() => handleDeleteAppointment(appt.id)}>{t('delete')}</button>
+                  <button
+                    className="text-blue-500"
+                    onClick={() => {
+                      navigate(`/consultation/${appt.id}`);
+                    }}
+                  >
+                    {t('joinCall')}
+                  </button>
+                </div>
               </div>
             ))
           ) : (
             <p>{t('noAppointments')}</p>
           )}
+      {/* Edit Appointment Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <form onSubmit={handleSubmitEdit(onEditAppointment)} className="bg-white p-6 rounded shadow w-full max-w-md space-y-4 relative" noValidate>
+            <button type="button" onClick={closeEditModal} className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl">&times;</button>
+            <h3 className="text-xl font-bold mb-2">{t('edit_appointment')}</h3>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('provider')}</label>
+              <input
+                type="text"
+                className={`w-full p-2 border rounded ${editErrors.provider ? 'border-red-500' : ''}`}
+                {...registerEdit('provider')}
+                disabled={editSubmitting}
+              />
+              {editErrors.provider && <p className="text-red-500 text-sm">{editErrors.provider.message}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('date')}</label>
+              <input
+                type="datetime-local"
+                className={`w-full p-2 border rounded ${editErrors.date ? 'border-red-500' : ''}`}
+                {...registerEdit('date')}
+                disabled={editSubmitting}
+              />
+              {editErrors.date && <p className="text-red-500 text-sm">{editErrors.date.message}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('notes')}</label>
+              <textarea
+                className="w-full p-2 border rounded"
+                {...registerEdit('notes')}
+                disabled={editSubmitting}
+              />
+            </div>
+            {editError && <p className="text-red-500 text-sm">{editError}</p>}
+            <button
+              type="submit"
+              className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:opacity-60"
+              disabled={editSubmitting}
+            >
+              {t('save_changes')}
+            </button>
+          </form>
+        </div>
+      )}
         </div>
 
         {/* Health Data */}

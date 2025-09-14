@@ -102,7 +102,7 @@ function App({ supabase }) {
             />
             {/* Video consultation (miners only) */}
             <Route
-              path="/consultation"
+              path="/consultation/:id"
               element={
                 <RoleRoute user={user} loading={loading} allowedRoles={['miner']}>
                   <VideoConsultation supabase={supabase} />

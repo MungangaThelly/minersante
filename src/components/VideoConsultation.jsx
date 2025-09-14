@@ -3,10 +3,12 @@ import { useStore } from '../store';
 import { useTranslation } from 'react-i18next';
 import Peer from 'simple-peer/simplepeer.min.js';
 import LanguageSwitcher from './LanguageSwitcher.jsx';
+import { useParams } from 'react-router-dom';
 
 function VideoConsultation({ supabase }) {
   const { t } = useTranslation();
   const { appointments, user, setAppointments } = useStore();
+  const { id: appointmentId } = useParams();
   const [peer, setPeer] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [currentAppointment, setCurrentAppointment] = useState(null);
@@ -26,37 +28,26 @@ function VideoConsultation({ supabase }) {
   ];
 
   useEffect(() => {
-    const initializeAppointment = async () => {
-      if (appointments.length > 0) {
-        const now = new Date();
-        const upcoming = appointments
-          .filter(appt => new Date(appt.date) > now)
-          .sort((a, b) => new Date(a.date) - new Date(b.date));
-        setCurrentAppointment(upcoming[0] || appointments[0]);
-      } else if (user?.id && user?.user_metadata?.role === 'miner') {
-        const { data: newAppt, error: apptError } = await supabase
-          .from('appointments')
-          .insert({
-            user_id: user.id,
-            provider_id: '', // Update with real provider ID
-            date: new Date(Date.now() + 3600000).toISOString(),
-            status: 'scheduled',
-          })
-          .select()
-          .single();
-
-        if (apptError) {
-          console.error('Failed to create appointment:', apptError.message);
-          return;
-        }
-
-        setAppointments([newAppt, ...appointments]);
-        setCurrentAppointment(newAppt);
+    const fetchAppointment = async () => {
+      if (!appointmentId) return;
+      // Try to find in local state first
+      let found = appointments.find(a => String(a.id) === String(appointmentId));
+      if (found) {
+        setCurrentAppointment(found);
+        return;
+      }
+      // Otherwise fetch from Supabase
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('id', appointmentId)
+        .single();
+      if (!error && data) {
+        setCurrentAppointment(data);
       }
     };
-
-    initializeAppointment();
-  }, [appointments, user?.id, user?.user_metadata?.role, supabase, setAppointments]);
+    fetchAppointment();
+  }, [appointmentId, appointments, supabase]);
 
   useEffect(() => {
     if (!currentAppointment || !user?.id) return;
