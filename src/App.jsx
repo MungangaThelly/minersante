@@ -125,9 +125,10 @@ function App({ supabase }) {
       </nav>
 
 
-      <div className="min-h-screen bg-gray-100 transition-colors duration-300">
-        <Suspense fallback={<div className="p-6 text-center">{t('loading')}</div>}>
-          <Routes>
+      <div className="min-h-screen bg-gray-100 transition-colors duration-300 flex flex-col">
+        <div className="flex-1">
+          <Suspense fallback={<div className="p-6 text-center">{t('loading')}</div>}>
+            <Routes>
             {/* Redirect /consultation to dashboard if no ID is provided */}
             <Route path="/consultation" element={<Navigate to="/dashboard" replace />} />
             {/* Profile page (miners only) */}
@@ -170,8 +171,25 @@ function App({ supabase }) {
                 </RoleRoute>
               }
             />
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </div>
+        {/* Footer */}
+        <footer className="w-full bg-white/80 backdrop-blur border-t border-blue-100 py-6 px-4 flex flex-col md:flex-row items-center justify-between gap-4 text-blue-900 text-sm shadow-inner mt-8">
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-blue-600">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>&copy; {new Date().getFullYear()} Minersanté. All rights reserved IT-Weor AB.</span>
+          </div>
+          <div className="flex gap-4 items-center">
+            <a href="mailto:it.weor@gmail.com" className="hover:underline hover:text-blue-600 transition-colors" aria-label="Email it.weor@gmail.com">it.weor@gmail.com</a>
+            <a href="https://www.linkedin.com/in/thelly660/" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600 transition-colors" aria-label="LinkedIn">LinkedIn</a>
+            <a href="https://github.com/MungangaThelly/minersante" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-blue-600 transition-colors" aria-label="GitHub">GitHub</a>
+            <span className="hidden md:inline">|</span>
+            <span className="italic text-blue-400">Empowering healthcare for all</span>
+          </div>
+        </footer>
       </div>
     </BrowserRouter>
   );
