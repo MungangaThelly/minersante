@@ -52,13 +52,14 @@ export default function Profile({ supabase }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-8 rounded shadow w-full max-w-md space-y-4" noValidate>
-        <h2 className="text-2xl font-bold mb-4">{t('profile_settings')}</h2>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex items-center justify-center p-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white/80 backdrop-blur-md p-8 rounded-2xl shadow-xl w-full max-w-md space-y-6 border border-blue-100" noValidate>
+        <h2 className="text-3xl font-extrabold mb-8 text-center tracking-tight text-blue-700 drop-shadow">{t('profile_settings')}</h2>
         <div>
           <label className="block text-sm font-medium mb-1">{t('username')}</label>
           <input
             type="email"
+            autoComplete="email"
             className={`w-full p-2 border rounded ${errors.email ? 'border-red-500' : ''}`}
             {...register('email')}
             disabled={isSubmitting}
@@ -69,6 +70,7 @@ export default function Profile({ supabase }) {
           <label className="block text-sm font-medium mb-1">{t('full_name')}</label>
           <input
             type="text"
+            autoComplete="name"
             className={`w-full p-2 border rounded ${errors.full_name ? 'border-red-500' : ''}`}
             {...register('full_name')}
             disabled={isSubmitting}

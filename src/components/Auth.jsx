@@ -93,9 +93,9 @@ function Auth({ supabase }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100">
+      <div className="bg-white/80 backdrop-blur-md p-8 rounded-2xl shadow-xl w-full max-w-md border border-blue-100">
+  <h2 className="text-3xl font-extrabold mb-8 text-center tracking-tight text-blue-700 drop-shadow">
           {t('appName')} {isSignUp ? t('signup') : t('login')}
         </h2>
 
@@ -155,8 +155,8 @@ function Auth({ supabase }) {
       {/* UUID Modal */}
       {showUUID && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full text-center shadow-lg">
-            <h3 className="text-xl font-semibold mb-4">{t('account_created')}</h3>
+          <div className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl max-w-md w-full text-center shadow-2xl border border-blue-100">
+            <h3 className="text-2xl font-bold mb-4 text-blue-700">{t('account_created')}</h3>
             <p className="mb-2">{t('your_uuid')}:</p>
             <code className="block p-2 bg-gray-100 border rounded break-all mb-4">
               {userUUID}

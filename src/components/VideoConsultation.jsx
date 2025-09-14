@@ -188,10 +188,10 @@ function VideoConsultation({ supabase }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+  <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        <header className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+        <header className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-blue-700 drop-shadow flex items-center gap-3">
             {t('videoConsultation')}
             {currentAppointment?.provider && (
               <span className="text-xl font-normal ml-2">
@@ -216,7 +216,7 @@ function VideoConsultation({ supabase }) {
         </header>
 
         {errorMsg && (
-          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded text-center">
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-xl text-center shadow">
             {errorMsg}
             {connectionStatus === 'error' && (
               <button
@@ -230,13 +230,13 @@ function VideoConsultation({ supabase }) {
         )}
 
         {!currentAppointment ? (
-          <div className="bg-white rounded-xl shadow p-6 text-center">
+          <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 text-center border border-blue-100">
             <p className="text-gray-500 mb-4">{t('noUpcomingAppointments')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">{t('appointmentDetails')}</h2>
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-xl p-8 border border-blue-100">
+              <h2 className="text-2xl font-bold mb-6 text-blue-700 drop-shadow">{t('appointmentDetails')}</h2>
               <div className="space-y-3">
                 <p>
                   <span className="font-medium">Date:</span>{' '}

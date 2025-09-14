@@ -158,7 +158,7 @@ function Dashboard({ supabase }) {
   if (!user) return <p>{t('no_auth')}</p>;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+  <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 p-4">
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold">
@@ -176,7 +176,7 @@ function Dashboard({ supabase }) {
       {/* Appointments & Health Data */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Upcoming Appointments */}
-        <div className="bg-white p-4 rounded-lg shadow">
+    <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-blue-100">
           <h2 className="text-xl font-semibold mb-4">{t('upcomingAppointments')}</h2>
           {appointments.length ? (
             appointments.map((appt) => (
@@ -205,7 +205,7 @@ function Dashboard({ supabase }) {
       {/* Edit Appointment Modal */}
       {showEditModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <form onSubmit={handleSubmitEdit(onEditAppointment)} className="bg-white p-6 rounded shadow w-full max-w-md space-y-4 relative" noValidate>
+          <form onSubmit={handleSubmitEdit(onEditAppointment)} className="bg-white/90 backdrop-blur-lg p-8 rounded-2xl shadow-2xl w-full max-w-md space-y-4 relative border border-blue-100" noValidate>
             <button type="button" onClick={closeEditModal} className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl">&times;</button>
             <h3 className="text-xl font-bold mb-2">{t('edit_appointment')}</h3>
             <div>
@@ -250,7 +250,7 @@ function Dashboard({ supabase }) {
         </div>
 
         {/* Health Data */}
-        <div className="bg-white p-4 rounded-lg shadow">
+  <div className="bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-blue-100">
           <h2 className="text-xl font-semibold mb-4">{t('healthData')}</h2>
           {healthData.length ? (
             healthData.map((data) => (
@@ -266,7 +266,7 @@ function Dashboard({ supabase }) {
       </div>
 
       {/* Book Appointment Form */}
-      <div className="mt-6 bg-white p-4 rounded-lg shadow">
+  <div className="mt-6 bg-white/80 backdrop-blur-md p-6 rounded-2xl shadow-xl border border-blue-100">
         <h2 className="text-xl font-semibold mb-4">{t('bookAppointment')}</h2>
         <form onSubmit={handleSubmitBooking(onBookAppointment)} className="space-y-4" noValidate>
           <div>
@@ -311,7 +311,7 @@ function Dashboard({ supabase }) {
       </div>
 
       {/* Language Switcher */}
-      <div className="mt-4">
+  <div className="mt-4">
         <LanguageSwitcher />
       </div>
     </div>
